@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depth Grant Engine Simulator (HTML)</title>
+    <!-- Load Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Load React, ReactDOM, and Babel Standalone for JSX in the browser -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Custom styles for the simulator elements */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Standard Slider Styling */
+        .range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            outline: none;
+            opacity: 0.8;
+            -webkit-transition: .2s;
+            transition: opacity .2s;
+            border-radius: 4px;
+        }
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2563EB;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+        .range-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #2563EB;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        }
+        /* Error Styling */
+        .max-cap-exceed {
+            border: 2px solid #ef4444 !important;
+            color: #ef4444 !important;
+        }
+        .quorum-fail {
+            background-color: #fef2f2 !important;
+            border-color: #f87171 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 sm:p-8">
+
+    <div id="root">
+        <!-- React App will render here -->
+    </div>
+
+    <script type="text/babel">
+        // Import necessary React hooks from the global React object
+        const { useState, useMemo, useCallback, useEffect } = React;
+
+        // Custom Icon components (using inline SVG for simplicity)
+        const Icon = ({ children, className = "w-5 h-5", color = "text-indigo-500" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" className={`${className} ${color}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {children}
+            </svg>
+        );
+
+        const Zap = (props) => (
+            <Icon {...props}><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></Icon>
+        );
+        const Sparkles = (props) => (
+            <Icon {...props} color="text-yellow-500"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path><path d="M12 7.5L15 10l5-3-3 5 5 3-5 3-3 5-3-5-5-3 5-3z"></path></Icon>
+        );
+        const Lock = (props) => (
+            <Icon {...props}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></Icon>
+        );
+        const DollarSign = (props) => (
+            <Icon {...props}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></Icon>
+        );
+        const ChevronRight = (props) => (
+            <Icon {...props}><path d="M9 18l6-6-6-6"></path></Icon>
+        );
+        const CheckCircle = (props) => (
+            <Icon {...props}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><path d="M22 4L12 14.01l-3-3"></path></Icon>
+        );
+        const Clock = (props) => (
+            <Icon {...props}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></Icon>
+        );
+        const ZapOff = (props) => (
+            <Icon {...props}><path d="M13.29 13.29l3.52 3.52L16 22l-4-5-4 5V14.61M2 12h6l-1 8 10-12h-6l1-8h-2l-1 4.5"></path><line x1="2" y1="2" x2="22" y2="22"></line></Icon>
+        );
+        const Scale = (props) => (
+            <Icon {...props}><path d="M16 16L12 2l-4 14m8 0H8m8 0l4 4-4 4m0-8L16 8l4 4m-8 0L8 8l4 4"></path></Icon>
+        );
+        const XCircle = (props) => (
+            <Icon {...props}><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></Icon>
+        );
+        const Slash = (props) => (
+            <Icon {...props}><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></Icon>
+        );
+        const Users = (props) => (
+            <Icon {...props} color="text-teal-500"><path d="M17 19H7"></path><path d="M17 15H7"></path><path d="M10 5l4 4-4 4"></path></Icon>
+        );
+        const Layers = (props) => (
+            <Icon {...props} color="text-indigo-500"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></Icon>
+        );
+
+        // --- DGE CORE LOGIC (Simulating gitbook.rs or smart contract constants) ---
+
+        // FUNDING LIMITS & SCALING
+        const MIN_GRANT_CAP = 1000;
+        const MAX_GRANT_CAP = 10000;
+        const D_METRIC_SCALE = 250;
+        const MIN_D_METRIC_REQUIRED = 10;
+        const D_METRIC_BOOST = 20;
+        const D_METRIC_PENALTY = 10;
+        const CONCURRENT_GRANT_PENALTY = 0.5; // Founder only gets 50% of their MaxCap for the second grant.
+
+        // SECURITY & BONDING
+        const BUILDER_BOND_USD = 300;
+        const GOVERNANCE_TOKEN_PRICE = 0.5;
+        const MIN_GRANT_REQUESTED = 100;
+
+        // ADAPTIVE QUORUM (AQ) LOGIC
+        const AQ_BASE_PERCENTAGE = 0.05; // 5.00% - Absolute minimum voter turnout required.
+        const AQ_SENSITIVITY_MULTIPLIER = 0.00000001; // 1e-8 - Rises 10% for every 10M $DEPTH in circulation.
+        const AQ_QUORUM_CEILING = 0.15; // 15.00% - Hard cap on the quorum requirement.
+
+        /**
+         * Calculates the maximum funding cap based on the D-Metric.
+         */
+        const calculateFundingCap = (dMetric) => {
+          if (dMetric < MIN_D_METRIC_REQUIRED) return 0; 
+          if (dMetric >= D_METRIC_SCALE) return MAX_GRANT_CAP;
+
+          const scaleRange = D_METRIC_SCALE - MIN_D_METRIC_REQUIRED;
+          const capRange = MAX_GRANT_CAP - MIN_GRANT_CAP;
+          
+          const dMetricAdjusted = dMetric - MIN_D_METRIC_REQUIRED;
+          
+          return Math.floor(MIN_GRANT_CAP + capRange * (dMetricAdjusted / scaleRange));
+        };
+
+        /**
+         * Calculates the required Builder Bond stake in $DEPTH tokens.
+         */
+        const getBuilderBondAmount = (tokenPrice) => {
+          return Math.ceil(BUILDER_BOND_USD / tokenPrice);
+        };
+
+        // --- APPLICATION STATE AND COMPONENTS ---
+
+        const initialGrantState = {
+          name: "Primary Grant (Project Alpha)",
+          grantRequested: MIN_GRANT_CAP,
+          isSubmitted: false,
+          isApproved: false,
+          isSlashingVoteActive: false,
+          milestoneProgress: 0,
+        };
+
+        const GRANT_MILESTONES = [
+          { name: "Phase 1: Proof of Concept", percent: 25 },
+          { name: "Phase 2: Alpha Launch & Testnet", percent: 30 },
+          { name: "Phase 3: Community Feedback Loop", percent: 25 },
+          { name: "Phase 4: Mainnet Launch & Review", percent: 20 },
+        ];
+
+
+        const App = () => {
+          const [dMetric, setDMetric] = useState(MIN_D_METRIC_REQUIRED);
+          const [depthSupply, setDepthSupply] = useState(10000000); 
+          const [totalDaoStaked, setTotalDaoStaked] = useState(1500000); 
+          
+          const [grant1, setGrant1] = useState(initialGrantState);
+          const [grant2, setGrant2] = useState(() => ({ 
+              ...initialGrantState, 
+              name: "Secondary Grant (Project Beta)", 
+              grantRequested: MIN_GRANT_REQUESTED 
+          }));
+
+          const [message, setMessage] = useState(null);
+
+          // Constants derived from DGE Logic
+          const requiredBond = useMemo(() => getBuilderBondAmount(GOVERNANCE_TOKEN_PRICE), []);
+          const baseMaxCap = useMemo(() => calculateFundingCap(dMetric), [dMetric]);
+          const grant2MaxCap = useMemo(() => Math.floor(baseMaxCap * CONCURRENT_GRANT_PENALTY), [baseMaxCap]);
+          
+          // Adaptive Quorum Calculation
+          const adaptiveQuorum = useMemo(() => {
+            const calculatedQuorum = AQ_BASE_PERCENTAGE + (depthSupply * AQ_SENSITIVITY_MULTIPLIER);
+            return Math.min(calculatedQuorum, AQ_QUORUM_CEILING); 
+          }, [depthSupply]);
+
+          // DERIVED GOVERNANCE METRICS
+          const requiredQuorumTokens = depthSupply * adaptiveQuorum;
+          const isQuorumFeasible = totalDaoStaked >= requiredQuorumTokens;
+          
+          // --- UTILITY FUNCTIONS ---
+
+          const showMessage = useCallback((content, type) => {
+            const typeClasses = {
+              pending: "bg-indigo-100 text-indigo-700",
+              success: "bg-emerald-100 text-emerald-700",
+              milestone: "bg-yellow-100 text-yellow-700",
+              error: "bg-red-100 text-red-700"
+            };
+
+            setMessage({ content, type, classes: typeClasses[type] });
+            setTimeout(() => setMessage(null), 7000);
+          }, []);
+
+          // Resets all grant progress if core inputs change
+          const handleCoreInputChange = (setter, value) => {
+            setter(value);
+            setGrant1(prev => ({ ...prev, isSubmitted: false, isApproved: false, isSlashingVoteActive: false, milestoneProgress: 0 }));
+            setGrant2(prev => ({ ...prev, isSubmitted: false, isApproved: false, isSlashingVoteActive: false, milestoneProgress: 0 }));
+            setMessage(null);
+          };
+          
+          // Grant-specific state update function
+          const setGrantState = useCallback((grantId, newState) => {
+            if (grantId === 1) {
+              setGrant1(prev => ({ ...prev, ...newState }));
+            } else if (grantId === 2) {
+              setGrant2(prev => ({ ...prev, ...newState }));
+            }
+          }, []);
+
+          // Calculates funds released for a specific grant
+          const calculateFundsReleased = useCallback((grant) => {
+            let released = 0;
+            if (!grant.isApproved && !grant.isSlashingVoteActive) return 0;
+            
+            for (let i = 0; i < grant.milestoneProgress; i++) {
+              released += grant.grantRequested * (GRANT_MILESTONES[i].percent / 100);
+            }
+            return released;
+          }, []);
+
+          // --- GRANT LIFECYCLE HANDLERS ---
+          
+          const handleProposalSubmission = (grantId, grant) => {
+            const maxCap = grantId === 1 ? baseMaxCap : grant2MaxCap;
+            const isWithinCap = grant.grantRequested <= maxCap;
+
+            const isEligible = dMetric >= MIN_D_METRIC_REQUIRED && isWithinCap && grant.grantRequested >= MIN_GRANT_REQUESTED && isQuorumFeasible;
+
+            if (isEligible) {
+              setGrantState(grantId, { isSubmitted: true });
+              showMessage(
+                <React.Fragment>
+                  <Clock className="w-5 h-5 mr-2" />
+                  Proposal "{grant.name}" Submitted! **{requiredBond.toLocaleString()} $DEPTH Bond** staked. Awaiting 7-day DAO vote.
+                </React.Fragment>, 'pending'
+              );
+            } else {
+              let errorContent = "Submission Rejected: Check D-Metric, Grant Cap, and Quorum Feasibility.";
+              if (!isQuorumFeasible) {
+                errorContent = `DAO participation is too low (${(adaptiveQuorum * 100).toFixed(2)}% required). Proposal "${grant.name}" cannot be submitted.`;
+              } else if (!isWithinCap) {
+                errorContent = `Grant Cap Exceeded for "${grant.name}". Max Cap: $${maxCap.toLocaleString()}.`;
+              }
+              showMessage(
+                <React.Fragment>
+                  <ZapOff className="w-5 h-5 mr-2" />
+                  {errorContent}
+                </React.Fragment>, 'error'
+              );
+            }
+          };
+
+          const simulateDaoVote = (grantId, grant, passed) => {
+            if (grant.isSubmitted && !grant.isApproved) {
+                if (passed) {
+                    setGrantState(grantId, { isApproved: true, milestoneProgress: 1 }); // Auto-release Phase 1 Tranche
+                    showMessage(
+                        <React.Fragment>
+                            <CheckCircle className="w-5 h-5 mr-2" />
+                            Proposal "{grant.name}" Vote Passed! First tranche released.
+                        </React.Fragment>, 'success'
+                    );
+                } else {
+                    // Failed vote: founder loses bond, process resets
+                    setGrantState(grantId, { isSubmitted: false });
+                    showMessage(
+                        <React.Fragment>
+                            <XCircle className="w-5 h-5 mr-2" />
+                            Proposal "{grant.name}" Vote Failed! **{requiredBond.toLocaleString()} $DEPTH Bond** is forfeited.
+                        </React.Fragment>, 'error'
+                    );
+                }
+            }
+          };
+
+          const handleMilestoneSuccess = (grantId, grant) => {
+            if (grant.isApproved && grant.milestoneProgress < GRANT_MILESTONES.length) {
+              const isFinalMilestone = (grant.milestoneProgress + 1) === GRANT_MILESTONES.length;
+              
+              const newMilestoneProgress = grant.milestoneProgress + 1;
+              setGrantState(grantId, { milestoneProgress: newMilestoneProgress });
+
+              if (isFinalMilestone) {
+                // SUCCESS: Apply D-Metric boost upon final completion
+                const boost = grantId === 1 ? D_METRIC_BOOST : Math.floor(D_METRIC_BOOST * CONCURRENT_GRANT_PENALTY);
+                const newDMetric = Math.min(D_METRIC_SCALE, dMetric + boost);
+                setDMetric(newDMetric);
+                
+                showMessage(
+                  <React.Fragment>
+                    <Zap className="w-5 h-5 mr-2" />
+                    Project "{grant.name}" Complete! D-Metric increased by **{boost} Points** (New D-Metric: **{newDMetric}**)!
+                  </React.Fragment>, 'success'
+                );
+              } else {
+                showMessage(
+                  <React.Fragment>
+                    <ChevronRight className="w-5 h-5 mr-2" />
+                    Milestone {newMilestoneProgress} for "{grant.name}" Approved. Tranche released!
+                  </React.Fragment>, 'milestone'
+                );
+              }
+            }
+          };
+
+          const handleFounderDefault = (grantId, grant) => {
+            if (grant.isApproved && !grant.isSlashingVoteActive && grant.milestoneProgress < GRANT_MILESTONES.length) {
+                setGrantState(grantId, { isSlashingVoteActive: true });
+                showMessage(
+                    <React.Fragment>
+                        <XCircle className="w-5 h-5 mr-2" />
+                        FOUNDER DEFAULTED on "{grant.name}". Slashing vote active!
+                    </React.Fragment>, 'error'
+                );
+            }
+          };
+
+          const simulateSlashingVote = (grantId, grant, slash) => {
+            setGrantState(grantId, { isSlashingVoteActive: false, isApproved: false }); // Grant process terminates
+
+            if (slash) {
+                // SLASHED: Lose bond, lose D-Metric
+                const newDMetric = Math.max(MIN_D_METRIC_REQUIRED, dMetric - D_METRIC_PENALTY);
+                setDMetric(newDMetric);
+                showMessage(
+                    <React.Fragment>
+                        <ZapOff className="w-5 h-5 mr-2" />
+                        SLASHED: Project "{grant.name}" founder penalized. **{requiredBond.toLocaleString()} $DEPTH Bond** forfeited. D-Metric reduced by **{D_METRIC_PENALTY} Points** (New D-Metric: **{newDMetric}**).
+                    </React.Fragment>, 'error'
+                );
+            } else {
+                // FORGIVEN: Lose grant, keep bond/D-Metric
+                showMessage(
+                    <React.Fragment>
+                        <Scale className="w-5 h-5 mr-2" />
+                        FORGIVEN: Project "{grant.name}" cancelled, **Bond returned**, D-Metric unchanged.
+                    </React.Fragment>, 'success'
+                );
+            }
+          };
+
+          // --- RENDER COMPONENT ---
+
+          const GrantSimulatorCard = ({ grantId, grant, maxCap, penaltyFactor }) => {
+            const fundsReleased = calculateFundsReleased(grant);
+            const fundsRemaining = grant.grantRequested - fundsReleased;
+            const isWithinCap = grant.grantRequested <= maxCap;
+            
+            // Eligibility Check
+            const isEligibleForSubmission = dMetric >= MIN_D_METRIC_REQUIRED && isWithinCap && grant.grantRequested >= MIN_GRANT_REQUESTED && isQuorumFeasible;
+            const capStatus = grant.grantRequested > maxCap ? 'Exceeds Cap' : 'Within Cap';
+
+            return (
+                <div className={`p-6 rounded-xl border-4 ${grant.isApproved ? 'border-emerald-200 bg-white' : 'border-gray-100 bg-gray-50'} shadow-md mb-6`}>
+                    <h3 className="text-xl font-bold text-gray-800 mb-3 flex items-center border-b pb-2">
+                        <Layers className="w-5 h-5 mr-2 text-indigo-500" />
+                        {grant.name} {penaltyFactor && <span className="text-xs font-semibold ml-2 text-red-500">({penaltyFactor})</span>}
+                    </h3>
+
+                    {/* Grant Request Input */}
+                    <div className="mb-4">
+                        <label className="text-md font-medium text-gray-700 block mb-1">
+                            Grant Amount Requested (USD):
+                        </label>
+                        <input
+                        type="number"
+                        min={MIN_GRANT_REQUESTED}
+                        max={MAX_GRANT_CAP}
+                        step="100"
+                        value={grant.grantRequested}
+                        onChange={(e) => {
+                            const val = Math.min(MAX_GRANT_CAP, Math.max(MIN_GRANT_REQUESTED, parseInt(e.target.value) || 0));
+                            setGrantState(grantId, { grantRequested: val, isSubmitted: false, isApproved: false, isSlashingVoteActive: false, milestoneProgress: 0 });
+                        }}
+                        className={`w-full p-2 border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ${!isWithinCap ? 'max-cap-exceed' : 'border-gray-300'}`}
+                        />
+                        <p className={`text-sm mt-1 font-medium ${!isWithinCap ? 'text-red-600' : 'text-gray-500'}`}>
+                            Max Cap: **${maxCap.toLocaleString()}**. Status: **{capStatus}**.
+                        </p>
+                    </div>
+                    
+                    {/* Progress & Payout */}
+                    <div className="flex justify-between items-center my-4 border-t pt-4">
+                        <div className="text-xl font-extrabold text-gray-800">
+                            Released: <span className="text-emerald-600">${fundsReleased.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="text-md font-medium text-gray-600">
+                            Remaining: <span className="text-red-500">${fundsRemaining.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
+                        <div 
+                        className="bg-indigo-500 h-3 rounded-full transition-all duration-500" 
+                        style={{ width: `${(fundsReleased / grant.grantRequested) * 100}%` }}
+                        ></div>
+                    </div>
+
+                    {/* LIFECYCLE CONTROLS */}
+                    <div className="flex flex-col space-y-3">
+                        
+                        {/* Submission */}
+                        {!grant.isSubmitted && (
+                        <button
+                            onClick={() => handleProposalSubmission(grantId, grant)}
+                            disabled={!isEligibleForSubmission}
+                            className={`w-full p-3 rounded-xl font-bold transition duration-300 flex items-center justify-center ${
+                            !isEligibleForSubmission
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+                            }`}
+                        >
+                            <ChevronRight className="w-5 h-5 mr-2" />
+                            {!isEligibleForSubmission ? 
+                            `INELIGIBLE: Fix Requirements & Quorum` 
+                            : `STEP 1: Submit Proposal & Pay ${requiredBond.toLocaleString()} $DEPTH Bond`}
+                        </button>
+                        )}
+
+                        {/* Initial DAO Vote Simulation */}
+                        {grant.isSubmitted && !grant.isApproved && (
+                            <div className="p-3 border-2 border-dashed border-yellow-400 rounded-xl bg-yellow-50 text-center">
+                                <p className="text-sm font-bold text-yellow-800 mb-2 flex items-center justify-center"><Clock className="w-4 h-4 mr-1"/> DAO Vote Active</p>
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={() => simulateDaoVote(grantId, grant, true)}
+                                        className="p-2 w-1/2 rounded-lg font-bold transition duration-300 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md text-sm"
+                                    >
+                                        VOTE PASSED
+                                    </button>
+                                    <button
+                                        onClick={() => simulateDaoVote(grantId, grant, false)}
+                                        className="p-2 w-1/2 rounded-lg font-bold transition duration-300 bg-red-600 hover:bg-red-700 text-white shadow-md text-sm"
+                                    >
+                                        VOTE FAILED
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {/* Slashing Vote (Failure Resolution) */}
+                        {grant.isSlashingVoteActive && (
+                            <div className="p-3 border-2 border-dashed border-red-400 rounded-xl bg-red-50 text-center">
+                                <p className="text-sm font-bold text-red-800 mb-2 flex items-center justify-center"><Slash className="w-4 h-4 mr-1"/> Slashing Vote Active!</p>
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={() => simulateSlashingVote(grantId, grant, true)}
+                                        className="p-2 w-1/2 rounded-lg font-bold transition duration-300 bg-gray-900 hover:bg-gray-700 text-white shadow-md text-sm"
+                                    >
+                                        VOTE TO **SLASH**
+                                    </button>
+                                    <button
+                                        onClick={() => simulateSlashingVote(grantId, grant, false)}
+                                        className="p-2 w-1/2 rounded-lg font-bold transition duration-300 bg-indigo-600 hover:bg-indigo-700 text-white shadow-md text-sm"
+                                    >
+                                        VOTE TO **FORGIVE**
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Milestone Controls */}
+                        {grant.isApproved && !grant.isSlashingVoteActive && (
+                            <div className="border border-gray-200 rounded-xl p-3">
+                                <h4 className="text-md font-semibold text-gray-700 mb-3">Milestone Progress ({GRANT_MILESTONES.length} phases)</h4>
+                                
+                                <div className="flex justify-between text-xs font-medium text-gray-500 mb-2">
+                                    <span>Current: Phase {grant.milestoneProgress}</span>
+                                    <span>Next Tranche: {grant.milestoneProgress < GRANT_MILESTONES.length ? `${GRANT_MILESTONES[grant.milestoneProgress].percent}%` : 'Done'}</span>
+                                </div>
+                                
+                                {grant.milestoneProgress < GRANT_MILESTONES.length && (
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => handleMilestoneSuccess(grantId, grant)}
+                                            className={`p-2 text-xs font-medium transition duration-150 rounded-lg flex items-center text-white w-full
+                                                ${grant.milestoneProgress < GRANT_MILESTONES.length - 1 
+                                                    ? 'bg-indigo-600 hover:bg-indigo-700' 
+                                                    : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                                        >
+                                            <CheckCircle className="w-4 h-4 mr-1" />
+                                            {grant.milestoneProgress < GRANT_MILESTONES.length - 1 ? 'Approve PoW & Next Tranche' : 'Approve Final PoW'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleFounderDefault(grantId, grant)}
+                                            className="p-2 text-xs font-medium transition duration-150 rounded-lg flex items-center bg-red-500 hover:bg-red-600 text-white"
+                                        >
+                                            <XCircle className="w-4 h-4 mr-1" />
+                                            Default
+                                        </button>
+                                    </div>
+                                )}
+                                {grant.milestoneProgress === GRANT_MILESTONES.length && (
+                                    <div className="p-2 bg-emerald-100 text-emerald-800 rounded-lg font-bold text-center text-sm">
+                                        PROJECT COMPLETE!
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+          };
+
+
+          return (
+            <div className="max-w-6xl mx-auto">
+              <header className="text-center mb-10 p-6 bg-white rounded-xl shadow-lg border-b-4 border-indigo-500">
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 flex items-center justify-center">
+                  <Zap className="w-8 h-8 mr-2 text-indigo-500" /> Depth Grant Engine Simulator (DGE) - Multi-Grant
+                </h1>
+                <p className="text-gray-500 mt-2">Modeling Credibility, Adaptive Quorum, and Concurrent Risk.</p>
+              </header>
+              
+              {/* Message Box */}
+              {message && (
+                  <div className={`p-4 rounded-xl shadow-md mb-6 flex items-center font-semibold ${message.classes}`}>
+                      {message.content}
+                  </div>
+              )}
+
+              {/* INPUTS PANEL */}
+              <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4 border-b pb-2">Profile & Protocol State Inputs</h2>
+                
+                <div className="grid md:grid-cols-4 gap-6">
+                  
+                  {/* D-Metric Input */}
+                  <div>
+                    <label className="text-lg font-medium text-gray-700 block mb-2 flex items-center">
+                      <Sparkles className="w-5 h-5 mr-2 text-yellow-500" /> Founder D-Metric: <span className="font-bold text-indigo-600 ml-2">{dMetric} / {D_METRIC_SCALE}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max={D_METRIC_SCALE}
+                      value={dMetric}
+                      onChange={(e) => handleCoreInputChange(setDMetric, parseInt(e.target.value))}
+                      className="range-slider"
+                    />
+                    <p className={`text-sm mt-1 font-medium ${dMetric < MIN_D_METRIC_REQUIRED ? 'text-red-600' : 'text-gray-500'}`}>
+                      **Commitment Floor**: Min **{MIN_D_METRIC_REQUIRED} D-Points** required.
+                    </p>
+                  </div>
+
+                  {/* Depth Supply Input */}
+                  <div>
+                    <label className="text-lg font-medium text-gray-700 block mb-2 flex items-center">
+                      <Scale className="w-5 h-5 mr-2 text-purple-500" /> Total $DEPTH Supply (M): <span className="font-bold text-purple-600 ml-2">{(depthSupply / 1000000).toFixed(1)}M</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="1000000"
+                      max="20000000"
+                      step="1000000"
+                      value={depthSupply}
+                      onChange={(e) => handleCoreInputChange(setDepthSupply, parseInt(e.target.value))}
+                      className="range-slider"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">Controls the **Adaptive Quorum (AQ)** size.</p>
+                  </div>
+
+                   {/* Staked Tokens Input */}
+                   <div>
+                    <label className="text-lg font-medium text-gray-700 block mb-2 flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-teal-500" /> Total $DEPTH Staked (M): <span className="font-bold text-teal-600 ml-2">{(totalDaoStaked / 1000000).toFixed(2)}M</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="100000"
+                      max={depthSupply}
+                      step="100000"
+                      value={totalDaoStaked}
+                      onChange={(e) => handleCoreInputChange(setTotalDaoStaked, parseInt(e.target.value))}
+                      className="range-slider"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">Pool of tokens actively participating.</p>
+                  </div>
+
+                  {/* Governance Security Metric */}
+                  <div className={`p-3 rounded-xl border-2 ${isQuorumFeasible ? 'border-teal-400 bg-teal-50' : 'quorum-fail border-red-500'}`}>
+                    <h3 className="font-bold text-lg mb-1 text-gray-700">Governance Feasibility</h3>
+                    <p className={`text-2xl font-extrabold ${isQuorumFeasible ? 'text-teal-600' : 'text-red-600'}`}>
+                      AQ: {(adaptiveQuorum * 100).toFixed(2)}%
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Required: **{requiredQuorumTokens.toLocaleString(0)} $DEPTH**. Status: **{isQuorumFeasible ? 'FEASIBLE' : 'UNFEASIBLE'}**
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRANT SIMULATOR CARDS */}
+              <div className="grid lg:grid-cols-2 gap-8">
+                  <GrantSimulatorCard 
+                      grantId={1} 
+                      grant={grant1} 
+                      maxCap={baseMaxCap} 
+                      penaltyFactor={null}
+                  />
+                  <GrantSimulatorCard 
+                      grantId={2} 
+                      grant={grant2} 
+                      maxCap={grant2MaxCap} 
+                      penaltyFactor={`Concurrent Penalty: ${CONCURRENT_GRANT_PENALTY * 100}% of Base Cap`}
+                  />
+              </div>
+            </div>
+          );
+        };
+
+        // Render the App component into the root div
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
