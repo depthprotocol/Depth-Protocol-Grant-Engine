@@ -1,0 +1,17 @@
+# Cargo.toml for solana-proof-of-depth-governance
+[package]
+name = "solana-proof-of-depth-governance"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name/Team"]
+license = "Apache-2.0"
+description = "A dynamic, adaptive quorum calculation engine for Solana governance based on protocol depth."
+
+[lib]
+# Required for building as a Solana program (a dynamic C library)
+crate-type = ["cdylib"]
+
+[dependencies]
+# We only use standard Rust types (u64, u128), so no external dependencies are strictly needed.
+# If more complex Solana-specific functionality were added, we would include:
+# solana-program = "1.18.1"
